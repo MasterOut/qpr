@@ -13,20 +13,24 @@ def choose_Ku(L): # Table from paper
     else:
         return 0
 
-def plot():
+def plot_comprate_vs_P():
     fig = plt.figure(num=1)
-    plt.plot(Pdb, compRate, 'go ', Pdb, fmin, 'ro ', figure=fig)
+    plt.plot(Pdb, compRate, 'go ', label="compRate", figure=fig)
+    #plt.plot(Pdb, fmin, 'ro ', label="fmin", figure=fig)
     plt.xlabel("P(dB)")
     plt.ylabel("Average computation rate(bits/channel use)")
     plt.title("L={}, Ku={}, Iterations per sample={}".format(L, Ku, ITER_NUM))
+    plt.legend()
 
 L = 4  # number of channels   
 Ku = choose_Ku(L)  # upper bound K
 
-ITER_NUM = 1000
+ITER_NUM = 10
 res = np.zeros([ITER_NUM, 2])
+#ran = range(0, 1+L)
 
-P_NUM = 100
+
+P_NUM = 50
 P = np.logspace(-1, 3, num=P_NUM)
 Pdb = 10*np.log10(P*1000)
 
@@ -43,12 +47,14 @@ for p_idx, p_val in enumerate(P):
     for n in range(0,ITER_NUM,1):
 
         h = np.random.standard_normal(L)
-        
+
+        # [fmin, aSquare[0], aSquare[1], ..., aSquare[L-1]]        
+        #np.put(res[n], ran, alg.qp_relax(h, p_val, Ku, L, d))
         res[n] = alg.qp_relax(h, p_val, Ku, L, d)
-    
+        
     res_average = np.average(res, axis=0) # 
     compRate[p_idx] = res_average[0]
     fmin[p_idx] = res_average[1]
     print "{}:\t{:.4f}\t{:.4f}\t{:.4f}\t".format(p_idx, p_val, 10*np.log10(p_val*1000), compRate[p_idx])
 
-plot()
+plot_comprate_vs_P()

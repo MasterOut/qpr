@@ -72,7 +72,11 @@ def qp_relax(h, P, Ku, L, d):
         aSquare[p[l]] = t[p[l]] * aSquare[l]
     
     compRate = 0.5 * np.log(1/fmin)   # computation rate
-    return [compRate, fmin]
+#    res = np.zeros(L+1)
+#    res[0] = fmin
+#    return np.put(res, range(1, L+1), aSquare) 
+    print h, aSquare
+    return [fmin, compRate]
 
 def qp_quantization(aKreuz, u, L, K):
     # Quantization of a real-valued vector aKreuz of length L
