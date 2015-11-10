@@ -5,13 +5,21 @@ import numpy as np
 import qpr_fundamentials as fun
 
 def calc_r(u, L):   # calculate r
+    """
+    Calculates r as:
+    r = u[L] / (1 - norm2^2( u[L-1] ) ) * u[1:L-1]
+    """
     if (L==2):
         r = u[L-1] / (1-fun.norm2(u[0])) * u[0]
     else:
         r = u[L-1] / (1-fun.norm2(u[0:L-1])) * u[0:L-1]
     return r
 
-def calc_aCross(L, r, aCross):
+def init_aCross(L, r):
+    """
+    Returns the initial aCross vector filled with r, except the last entry filled with 1.
+    """
+    aCross = np.zeros(L)
     if (L==2):
         aCross[0] = r
         aCross[1] = 1
@@ -21,28 +29,40 @@ def calc_aCross(L, r, aCross):
     return aCross
 
 def qp_relax(h, P, Ku, L):
+    """
+    Implementation of the proposed algorithm by [ZM15].
+    Returns a tuple with the calculated computation rate and the integer valued coefficient vector aSquare.
     
-    aCross = np.zeros(L)
+    Parameters
+    ----------
+    h: array-like
+        channel coefficient vector
+    P: float
+        Power
+    Ku: int
+        upper bound for K (maximal possible value in aSquare)
+    L: int
+        length of channel vector/ aSquare (=number of senders in the system)
+    """
     K = 0   # K
     Kl = 0  # running K
     d = 0.0
     
-    hAbs = np.absolute(h)
-    t = np.ones(L)
+    hAbs = np.absolute(h)   # calculates the absolute of h
+    t = np.ones(L)          # 
+    np.copysign(t, h, t)    # copies signs of h elementwise to t (+/-1)
     
-    np.copysign(t, h, t)    # copies sign elementwise from h to t, output is t
+    p = hAbs.argsort(axis=None, kind='quicksort') # indexes of sorted channel vector
+    hAbsSort = np.copy(hAbs[p])   # sorted absolute channel vector    
     
-    p = hAbs.argsort(axis=None, kind='quicksort', order=None) # indexes of sorted channel vector
-    hSort = np.copy(hAbs[p])   # sorted channel vector    
+    b = 1 + P * fun.norm2(h)    # part of denominator in Computation Rate formula in [1]
     
-    b = 1 + P * fun.norm2(h)
-    
-    u = np.sqrt(P/b) * hSort
+    u = np.sqrt(P/b) * hAbsSort # 
     
     r = calc_r(u, L)
-    aCross = calc_aCross(L, r, aCross)
+    aCross = init_aCross(L, r)
     
-    # DETERMINE K
+    """ DETERMINE K """
     if fun.nf(Ku, aCross) < b:
         K = Ku
     else:
@@ -56,7 +76,7 @@ def qp_relax(h, P, Ku, L):
 
         K = Kl
     
-    # Quantization
+    """ Quantization """
     aSquare = np.zeros(L, dtype=np.int)
     aSquare[L-1] = 1
     fmin = fun.norm2(aSquare) - np.power( (np.dot(aSquare, u) ), 2)
@@ -89,6 +109,6 @@ def qp_relax(h, P, Ku, L):
     for l in range(0, L):      # recover coefficient vector
         aSquare[p[l]] = t[ p[l] ] * aSquare[l]
 
-    compRate = 0.5 * np.log(1/fmin)   # computation rate
+    compRate = 0.5 * np.log2(1/fmin)   # computation rate
 
     return (compRate, aSquare)
