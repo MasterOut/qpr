@@ -8,9 +8,9 @@ def norm2(v):       # calculate the euclidic norm
     vsum = v.sum()
     return vsum
 
-def fl(v):          # calculate the floor and return an int-value
+def fl(v):          # calculate the floor and return as integer value
     return np.floor(v).astype(int)
 
-def nf(K, v):       # norm of floor (K*v)
+def nf(K, v):       # norm2 of floor (K*v)
     return norm2(fl(K * v))
     

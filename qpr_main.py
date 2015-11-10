@@ -13,48 +13,60 @@ def choose_Ku(L): # Table from paper
     else:
         return 0
 
-def plot_comprate_vs_P():
+def plot_comprate_vs_P(PdB, compRate, L, Ku, ITER_NUM):
     fig = plt.figure(num=1)
-    plt.plot(Pdb, compRate, 'go ', label="compRate", figure=fig)
+    plt.plot(PdB, compRate, 'go ', label="compRate", figure=fig)
     #plt.plot(Pdb, fmin, 'ro ', label="fmin", figure=fig)
     plt.xlabel("P(dB)")
     plt.ylabel("Average computation rate(bits/channel use)")
     plt.title("L={}, Ku={}, Iterations per sample={}".format(L, Ku, ITER_NUM))
     plt.legend()
 
-L = 4  # number of channels   
-Ku = choose_Ku(L)  # upper bound K
+def qpr_main():
+    
+    L = 8  # number of channels   
+    Ku = choose_Ku(L)  # upper bound K
+    
+    ITER_NUM = 10
+    ITER_RANGE = range(0,ITER_NUM)
+    compRate_arr = np.zeros(ITER_NUM)  # esult array to hold compRate
+    aSquare_arr =  np.zeros([ITER_NUM, L])  # result array to hold aSquare
+    h_arr = np.zeros([ITER_NUM, L])  
+    
+    P_NUM = 50
+    P = np.logspace(0, 2, num=P_NUM)
+    PdB = 10 * np.log10(P)    # relative to Noise, Noise = 1
+    compRate_average = np.zeros(P_NUM)
+    
+    f = open("aSquare_dump.txt", "w")
+    
+    for p_idx, p_val in enumerate(P):
+    
+        for n in ITER_RANGE:
+    
+            h_arr[n] = np.absolute( np.random.standard_normal(L) ) # generating a gaussion standard normal distributed 
 
-ITER_NUM = 10
-res = np.zeros([ITER_NUM, 2])
-#ran = range(0, 1+L)
-
-
-P_NUM = 50
-P = np.logspace(-1, 3, num=P_NUM)
-Pdb = 10*np.log10(P*1000)
-
-compRate = np.zeros(P_NUM)
-fmin = np.zeros(P_NUM)
-
-d = 0.0 # global variabel, needed in qp_quantization and fmin
-
-# FILE
-f = open("chcoeff_dump.txt", "w")
-
-for p_idx, p_val in enumerate(P):
-
-    for n in range(0,ITER_NUM,1):
-
-        h = np.random.standard_normal(L)
-
-        # [fmin, aSquare[0], aSquare[1], ..., aSquare[L-1]]        
-        #np.put(res[n], ran, alg.qp_relax(h, p_val, Ku, L, d))
-        res[n] = alg.qp_relax(h, p_val, Ku, L, d)
+            # run quadtratic programming relaxation algorithm
+            # result is a tupel of two arrays
+            res_tupel = alg.qp_relax(h_arr[n], p_val, Ku, L) 
+            # allocate result tupel            
+            compRate_arr[n] = res_tupel[0]  # array containing [compRate, fmin]
+            aSquare_arr[n] = res_tupel[1]   # aSquare
         
-    res_average = np.average(res, axis=0) # 
-    compRate[p_idx] = res_average[0]
-    fmin[p_idx] = res_average[1]
-    print "{}:\t{:.4f}\t{:.4f}\t{:.4f}\t".format(p_idx, p_val, 10*np.log10(p_val*1000), compRate[p_idx])
+        f.write("aSquare\tchannelVector\n")
+        for idx in ITER_RANGE:
+            f.write("%s\n" % [aSquare_arr[idx], h_arr[idx]] )
+        
+        
+        compRate_average[p_idx] = np.average(compRate_arr, axis=0) # calculate average compRate and fmin
 
-plot_comprate_vs_P()
+        print "{}:\t{:.4f}\t{:.4f}\t{:.4f}\t".format(p_idx, p_val, PdB[p_idx], compRate_average[p_idx])
+    plot_comprate_vs_P(PdB, compRate_average, L, Ku, ITER_NUM)
+    
+
+'''
+MAIN
+'''
+if __name__ == '__main__':
+    qpr_main()
+    
