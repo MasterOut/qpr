@@ -1,2 +1,0 @@
-nr	P	Pdb	h	a	a_occ	R	time	R_ref
-#iterations=1000 pstart=0 pend=2 pnum=200 L=4 Ku=4 time_scale=100
