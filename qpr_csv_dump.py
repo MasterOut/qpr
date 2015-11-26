@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 
 import csv
@@ -20,19 +21,18 @@ class csv_dict_writer:
         self.csvfile = open(self._csvfilename, 'wr')
         
         # make DictWriter
-        self.w = csv.DictWriter(self.csvfile, fieldnames=self.fieldnames, delimiter='\t')
+        self.w = csv.DictWriter(self.csvfile, fieldnames=self.fieldnames, delimiter='\t\t')
         
         # write header first
         self.w.writeheader()
         
         # some needed variables
         self._FLOATTYPES = [type(float()), type(np.float()), type(np.float128()), type(np.float16()), type(np.float32()), type(np.float64())]
-        self._float_precision = "{: .2f}"
+        self._float_precision = "{: .4f}"
     
     def close(self):
         self.csvfile.close()
-        
-        
+                
     def write_row(self, dic):
         shape_dic = {}  # holds the length of the values in dic (will be updated)
         max_dic = {}    # holds number of rows for each value in dic (won't be updated)
@@ -145,7 +145,7 @@ class csv_dict_reader:
             # if comment line with new parameters
             if row['nr'].find('#') == 0:
                 if not first_run:
-                    if parameter_dic['L'] in [4, 8, 16]:
+                    if parameter_dic['L'] in [16]:
                         self.plot(Pdb, R, parameter_dic)
                 parameter_dic = self.split_comment(row['nr'])
                 P = []
@@ -180,6 +180,8 @@ class csv_dict_reader:
     def read_row(self):
         for row in self.r:
             print row   
+
+    
 
 if __name__ == '__main__':
     reader = csv_dict_reader()

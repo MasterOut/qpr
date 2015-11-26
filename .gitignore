@@ -6,6 +6,12 @@ tests.py
 learning.py
 qpr_alg_onefile.py
 
+# csv dumps
+/csvfiles
+
+# txt csv files
+*.txt
+*.csv
 
 # spyder session file
 qpr_spyder_session

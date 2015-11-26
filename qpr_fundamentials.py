@@ -6,9 +6,7 @@ import numpy as np
 
 FLOAT_TYPES = [type(int()), type(np.float32()), type(np.float64())]
 INT_TYPES = [type(int()), type(np.int32()), type(np.int64())]
-"""
-General mathematic functions
-"""
+
 def norm2(v):
     """ Calculates the euclidic norm 2 of a vector v to the power of 2. """
     v=np.power(v, 2)
@@ -51,7 +49,6 @@ def comp_rate(h, a, P):
     Calculates the Computation Rate as known as the function:
     R(h, a) = 1/2 * log2(1/ (norm2(a) - (P*(h*a)^2))/(1+ P*norm2^2(h)) )
     """
-
     ha_dotprod_pow2 = np.power(np.dot(h, a), 2)
     denominator = norm2(a) - ( P * ha_dotprod_pow2 / (1 + P * norm2(h) ) )
     R = 0.5 * log2_plus(1 / denominator)
@@ -127,114 +124,47 @@ def sort_cofVec_occ(p_dict, direction):
     ind_vec = np.argsort(sort_vec, axis=0) # sort sort_vec and save the indexes
           
     return ind_vec
-
-"""
-Write to file
-"""
-#class file_dump:
-#    def __init__(self, filename, cmdl_print=True):
-#        self.filename = filename    # store filename as a class variable
-#        self.cmdl_print = cmdl_print  # if true, the cmd line will be printed too
-#        self.f = open(self.filename, "w")   # open class file
-#
-#    def def_header(self, *args):
-#        self.head_str = ""
-#        self.line_str = ""
-#        self.line_str_a = ""
-#        self.print_config = args
-##        prec_string = ":.2"        
-#        
-#        last_dist = 0
-#        for tup in self.print_config:
-#            dist = tup[1]
-#            typ = tup[2]    # float, int, array, ... for precision
-#            tabs = abs(dist - last_dist)    # nr of tabs to next column
-#            tabs_str = tabs*"\t"
-#            column_key = tup[0]
-#    
-#            if typ == 'float':
-#                precision = ":.3"
-#            else:
-#                precision = ""
-#           
-#            if column_key == "a":
-#                additional = " : {anr}"
-#                self.line_str_a += "\t{a}" + additional
-#            else:
-#                additional = "" 
-#            self.line_str += tabs_str + "{" +  column_key + precision + "}" + additional
-#            self.head_str += tabs_str + column_key
-#            self.line_str_a += tabs_str
-#            last_dist = dist
-#        
-#        self.print_line(self.head_str)
-##        print self.head_str
-#        #print self.line_str
-#        
-#    def print_line(self, linestr):
-#        if self.cmdl_print:
-#            print linestr
-#        self.f.write(linestr+"\n")
-#        
-#    def print_table_line(self, **kwargs):
-#        a_len = len(kwargs["a"]) # number of different coefficient vectors
-#        a_dict = kwargs.pop("a")    # deletes and returns item with keyword "a"
-#        a_print_dict = {}
-#        kwargs["a"] = a_dict[0][0]      # für die erste Zeile, a
-#        kwargs["anr"] = a_dict[0][1]    # für die erste Zeile, Anzahl des Auftretens vom ersten a
-#        string = ""
-#        if a_len == 1: # only one coefficient vector -> only one line needs to be printed            
-#            string = self.line_str.format(**kwargs)
-#            string += "\n"
-#            if self.cmdl_print:
-#                print(string)
-#        else:
-#            string = self.line_str.format(**kwargs) + "\n"
-#            for i in range(1, a_len):               
-#                a_print_dict[i] = {"a": a_dict[i][0], "anr": a_dict[i][1]}
-#                string += self.line_str_a.format(**a_print_dict[i]) +"\n"
-#        string += "\n"        
-#        self.f.write(string)
-#    
-#    def print_dump(self, ITER_RANGE, **kwargs):
-#        current_line_dict = {}   
-#        self.print_line(self.head_str)
-#        for i in ITER_RANGE:
-#            for key in kwargs.keys():
-#                current_data = kwargs[key][i]
-#                current_line_dict[key] = kwargs[key][i]
-#            self.print_table_line(current_line_dict)
-#        
-#    def close(self):
-#        self.f.close()
-#    
-#
-#class file_dumper:
-#    def __init__(self, filename, cmdl_print=True):
-#        self.filename = filename
-#        self.cmdl_print = cmdl_print
-#        self.f = open(filename, "w")
-#        
-#    def def_columns(self, column_tuple_list):
-#        """
-#        column_tuple_list is a list of tuples in the form: (column name, position)
-#        """
-#        self.col_names = []
-#        self.col_pos = []
-#        
-#        for col_tup in column_tuple_list:
-#            name = col_tup[0]
-#            pos = col_tup[1]
-#            self.col_names.append(name)
-#            self.col_pos.append(pos)
-#            if name in self.col_names:
-#                print "ERROR: Column name is already defined."
-#            if pos in self.col_pos:
-#                print "ERROR: Column position has already been set."
-#        print self.col_names
-#        print self.col_pos
-
-
+    
+def cnt_occurence(a, di=True):
+    """
+    Returns two lists. 1: list with channel vectors. 2: list with occurence of each channel vector
+        
+    Parameters
+    ----------
+    a: array like
+        array of coefficient vectors, which will be counted
+    di: bool
+        True: decreasing, False: increasing order
+    """
+    lis = [] # [ [a_vector, cnt(a_vector] ),  ...]
+    lis_occ = []
+    for i in range(0, len(a)):  # for all coefficient vectors in a:
+        found = False
+        ai = a[i]
+        
+        for i, e in enumerate(lis): # if current coeff vector already seen, increment occurence list
+            if np.array_equal(e, ai):
+                lis_occ[i] += 1
+                found = True
+                break
+        
+        if not found:   # if not seen, add coeff vector to list and 1 to occurence list
+            lis.append(ai)
+            lis_occ.append(1)
+    
+    lis_occ_unsort = np.copy(lis_occ)
+    if di:  # if decreasing order is wanted: negate occurences
+        lis_occ = np.negative(lis_occ)
+        
+    lis_sort_ind = np.argsort(lis_occ, axis=0) # get indizes to sort lis_occ
+    
+    lis_unsort = np.copy(lis)
+    
+    for i in range(0, len(lis)):
+        lis[i] = lis_unsort[lis_sort_ind[i]]    
+        lis_occ[i] = lis_occ_unsort[lis_sort_ind[i]]
+    
+    return lis, lis_occ
 
 
 
