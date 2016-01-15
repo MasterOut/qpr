@@ -4,31 +4,32 @@
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import os
 
 class csv_dict_writer:
-    def __init__(self, filename, fieldnames=None):
+    def __init__(self, filename, fieldnames=None, filedir='csvfiles'):
         
         # if fieldnames should be default
         if fieldnames == None:        
-            self.fieldnames = ['nr', 'P', 'Pdb', 'h', 'a', 'a_occ', 'R', 'time', 'R_ref']
+            self.fieldnames = ['nr', 'P', 'Pdb', 'h', 'a', 'a_occ', 'Rmean', 'Rstd', 'time', 'R_ref_av']
         else:
             self.fieldnames = fieldnames
         
         # open csvfile
-        self._csvfiledir = 'csvfiles/'
-        self._csvfilename = self._csvfiledir + filename
-        self.csvfile = open(self._csvfilename, 'wr')
+        self._csvfiledir = filedir
+        self._csvfilename = filename
+        self.csvfile = open(self._csvfiledir + '/' + self._csvfilename, 'w')
         
         # make DictWriter
-        self.w = csv.DictWriter(self.csvfile, fieldnames=self.fieldnames, delimiter='\t\t')
+        self.w = csv.DictWriter(self.csvfile, fieldnames=self.fieldnames, delimiter='\t')
         
         # write header first
         self.w.writeheader()
         
         # some needed variables
         self._FLOATTYPES = [type(float()), type(np.float()), type(np.float128()), type(np.float16()), type(np.float32()), type(np.float64())]
-        self._float_precision = "{: .4f}"
+        self._FLOAT_PRECISION = "{: .6f}"
     
     def close(self):
         self.csvfile.close()
@@ -67,7 +68,7 @@ class csv_dict_writer:
                     
                     # adjust precision of floats
                     if type(print_dic[key]) in self._FLOATTYPES:
-                        print_dic[key] = self._float_precision.format(print_dic[key])
+                        print_dic[key] = self._FLOAT_PRECISION.format(print_dic[key])
             if max(shape_dic.values()) == 0:
                 print_new_row = False
                 
@@ -82,21 +83,30 @@ class csv_dict_writer:
         self.csvfile.write(settings_str)
 
 class csv_dict_reader:
-    def __init__(self):
+    def __init__(self, plot_par_dict):
+        self.par = plot_par_dict
 #        self.csvfiledir = 'csvfiles/'        
         
         # find available files and choose one file to read
-        csvfile = self.choose_csv_file('csvfiles/')
+        self.csvfilestring, self.csvfilename = self.choose_csv_file('csvfiles/')
 
-        # open file to read
-        self.file = open(csvfile, 'r')
-        
+        # open file for reading
+        self.file = open(self.csvfilestring, 'r')
+        # make new DictReader from csv
         self.r = csv.DictReader(self.file, delimiter='\t')
-            
-    def get_csv_files_avail(self, directory):
+        # run correct routine to handl normal simulation and time measurement
+        if self.csvfilename.find("qpr_run") == 0:
+            self._plot_qpr_run()
+        elif self.csvfilename.find("qpr_timeit") == 0:
+            self._plot_qpr_timeit()
+        else:
+            print "Filename {} doesn't match qpr_run or qpr_timeit.".format(self.csvfilename)
+
+        
+    def _get_csv_files_avail(self, directory):
         """ Returns available .csv and .txt file in directory """
         files = os.listdir(directory)
-        print files
+#        print files
         csvfiles_avail = []
         for file_str in files:
             file_format = file_str.split('.', 1)[1]
@@ -107,8 +117,8 @@ class csv_dict_reader:
                 
     def choose_csv_file(self, directory):
         """ chooses one file out of files in directory """
-        csvfiles_avail = self.get_csv_files_avail(directory)
-        print csvfiles_avail
+        csvfiles_avail = self._get_csv_files_avail(directory)
+#        print csvfiles_avail
         if not len(csvfiles_avail) == 0:
             for ind, file_name in enumerate(csvfiles_avail):
                 print ind, file_name
@@ -116,11 +126,11 @@ class csv_dict_reader:
             file_choose = int(raw_input('Which file should be read? ({}-{}): '.format(0, ind)))
             filename = csvfiles_avail[file_choose]
             csvfile = directory + filename
-            print csvfile
+#            print csvfile
 
-        return csvfile
+        return csvfile, filename
         
-    def split_comment(self, comment_str):
+    def _split_comment(self, comment_str):
         """ Returns a dict with parameters """
         print comment_str
 #        par_keys = ['iterations', 'pstart', 'pend', 'pnum', 'L', 'Ku', 'time_scale']
@@ -137,55 +147,124 @@ class csv_dict_reader:
             dic[key] = value
         return dic
         
-    def plot_r_p(self):
+    def _plot_qpr_run(self):
         """ Plots R (rate) vs p (power) """
         _undef_values = ['', None, ' ']
         first_run = True
+        P = []
+        Rmean = []
+        Rstd = []
+        Pdb = []        
+        Lrange = self.par['Lrange']
+        nr = 0
+        self.fig = plt.figure(num=1)
         for row in self.r:
-            # if comment line with new parameters
-            if row['nr'].find('#') == 0:
-                if not first_run:
-                    if parameter_dic['L'] in [16]:
-                        self.plot(Pdb, R, parameter_dic)
-                parameter_dic = self.split_comment(row['nr'])
-                P = []
-                R = []
-                Pdb = []
-                first_run = False
-                continue
+            if self._row_is_comment(row):
+                parameter_dic = self._split_comment(row['nr'])
+                pnum = int(parameter_dic['pnum'])
+                
+            else:
+                L = parameter_dic['L']
+                if L in Lrange:
+                    for key, value in row.iteritems():
+                        if value in _undef_values:
+                            continue
+                        if key == 'P':
+                            P.append(float(value))
+                        elif key == 'Pdb':
+                            Pdb.append(float(value))
+                        elif (key == 'Rmean') or (key == 'R'):
+                            Rmean.append(float(value))
+                        elif (key == 'Rstd'):
+                            Rstd.append(float(value))
+                        elif key == 'nr':
+                            nr = int(value)
+                            
+                if nr == pnum-1:
+                    nr = 0
+                    #print np.random.standard_normal(1)
+                    #print len(Pdb), len(Rmean)
+#                    self.fig = plt.figure(num=L)
+                    self._qpr_run_plotter(Pdb, Rmean, Rstd, parameter_dic)
+                    P = []
+                    Rmean = []
+                    Rstd = []
+                    Pdb = []
+                
+                    
+    def _read_iteration(self):
+        """ """
+        iteration_dict = {}        
+        for row in self.r:
+            if _row_is_comment(row):
+                pass
+            else:
+                pass
+    
+    def _row_is_comment(self, row):
+        is_comment = False
+        if row['nr'].find('#') == 0: # '#' at position 0, >= 0 is also possible
+            is_comment = True
+        return is_comment
 
-            # iterate over all lines and grab P and R values
-            for key, value in row.iteritems():
-                if value in _undef_values:
-                    continue
-                if key == 'P':
-                    P.append(float(value))
-                elif key == 'Pdb':
-                    Pdb.append(float(value))
-                elif key == 'R':
-                    R.append(float(value))
-        # plot last setting
-        if parameter_dic['L'] in [4, 8, 16]:
-            self.plot(Pdb, R, parameter_dic)
-                    
-                    
-    def plot(self, Pdb, R, parameter_dic):         
-        title_str = "{iterations} iterations\nPdB={pstart}->{pend} ({pnum} steps)"
-        plt.plot(Pdb, R, label="L={L:0} Ku={Ku:0}".format(**parameter_dic))
+    def _qpr_run_plotter(self, Pdb, R, Rstd, parameter_dic):       
+        ax = plt.gca()
+        title_str = "{}\n".format(self.csvfilename) + "{iterations} iterations\nPdB={pstart}->{pend} ({pnum} steps)"
+#        plt.plot(Pdb, R,
+#                 label="L={L:0} Ku={Ku:0}".format(**parameter_dic),
+#                 figure=self.fig,
+#                 )
+        
+        if not self.par['errorbar']:
+            Rstd = None
+        plt.errorbar(Pdb, R,
+                     yerr=Rstd,
+                     label="L={L:0} Ku={Ku:0}".format(**parameter_dic),
+                     figure=self.fig,
+                     )
         plt.title(title_str.format(**parameter_dic))
         plt.xlabel('Power (P / dB)')
         plt.ylabel('average computation rate (bits/channel)')
         plt.legend(loc='upper left')
+        ax.grid(b=True, axis='both', color='#858484', linestyle='--', linewidth=0.5)
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
+        ax.xaxis.set_ticks(np.arange(xmin, xmax+0.1, 2))
+        ytick = np.round((ymax-ymin)/10, decimals=1)
+        if ytick == 0:
+            ytick = 0.05
+        ax.yaxis.set_ticks(np.arange(ymin-ytick, ymax+ytick, ytick))
+#        ax.yaxis.set_major_formatter(ticker.FormatStrFormatter(('%0.1f')))        
         
-    def read_row(self):
+    def _plot_qpr_timeit(self):
+        P = []
+        T = []
+        for row in self.r:
+            P.append(row['P']); T.append(row['t'])
+        plt.plot(P, T)
+                       
+    def _read_row(self):
         for row in self.r:
             print row   
-
     
+    def _check_csv_filename(self, string):
+        prefix = self.csvfilename.split('_')
+        ret = False
+        if prefix[0] == string:
+            ret = True
+        return ret
+        
 
 if __name__ == '__main__':
-    reader = csv_dict_reader()
-    reader.plot_r_p()
+    
+    plot_par_dict={
+        "Prange": [0, 20, 2],
+        "Lrange": range(2, 17, 2), # these L values will be plotted
+        "errorbar": True,
+    }    
+    
+    reader = csv_dict_reader(plot_par_dict)
+
     
     
     

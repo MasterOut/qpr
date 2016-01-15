@@ -106,8 +106,10 @@ def qp_relax(h, P, Ku, L):
         aC = k * aC1
         d = np.dot(aC, u)
         
-        """ QUESTION:   in paper: for l <-1 to L-1
-                        is in python: range(0, L) ? or range(0, L-1) 
+        """ QUESTION:   
+        paper:      for l <-1 to L-1
+        in python:  range(0, L) ? or range(0, L-1) 
+        
         alg     python
         1       0
         2       1

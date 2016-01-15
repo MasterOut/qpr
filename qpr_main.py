@@ -15,12 +15,12 @@ def qpr_main(par_dict):
     """
     date_str = time.strftime("%Y_%m_%d_%H%M%S")
 #    date_str = ""
-    filename = 'run_' + date_str + '.txt'
+    filename = 'qpr_run_' + date_str + '.txt'
 #    fieldnames = ['nr', 'P', 'Pdb', 'h', 'a', 'a_occ', 'R', 'time', 'R_ref']
     w = qcsv.csv_dict_writer(filename)    
     
     # generate P and PdB
-    P = np.logspace(par_dict["pstart"], par_dict["pend"], par_dict["pnum"])
+    P = np.logspace(par_dict["pstart"] /10, par_dict["pend"] /10, par_dict["pnum"])
     Pdb = 10* np.log10(P)
     
     # use standard normal distributed channel vector or given vector
@@ -59,9 +59,12 @@ def qpr_main(par_dict):
         for ind, p in enumerate(P):   
     #        pdb = 10*np.log10(p)           
             if use_std_normal:
-                h = np.random.standard_normal(size=(its, L))  
+                h = np.random.standard_normal(size=(its, L)) 
             else:
                 h = [ np.array(par_dict["h"]) ]
+                
+            if par_dict["h_absolute"]:
+                    h = np.absolute(h) 
                 
             cr = np.zeros((its,1))  # array to hold cr values
             a = np.zeros((its, L))  # array to hold a coefficients
@@ -70,23 +73,33 @@ def qpr_main(par_dict):
             tstart = time.time()
             for i in its_range:
                 cr[i], a[i] =  alg.qp_relax(h[i], p, Ku, L)
+                #if np.dot(h[i], a[i]) < 0:
+                #    print "h[i] dot a[i] < 0 !"
             tend = time.time()
             time_needed = (tend - tstart) * time_scale
             
-            a_list, a_occ_list = fun.cnt_occurence(a)
-            cr_av = np.average(cr)
+            # cnt appearance for each choefficient vector
+            a_list, a_occ_list = fun.cnt_appearance(a)
+            cr_mean = np.mean(cr)
+            cr_std = np.std(cr)
+            #cr_max = np.max(cr)
+            #cr_min = np.min(cr)
             
+            """ Comparison with reference computation rate formula """
             if par_dict["calc_ref"]:
-                """ Comparison with reference computation rate formula """
-                a_most = a_list[0]
+                a_most = a_list[0] # most calculated coeff vector
                 for i_h, v_h in enumerate(h):
-                    cr_ref[i_h] = fun.comp_rate(np.absolute(v_h), a_most, p)
+                    cr_ref[i_h] = fun.comp_rate(v_h, a_most, p)
                 cr_ref_av = np.average(cr_ref)
+            #print "\t{0}\t{1}\t{2}\t{3}".format(cr_mean, cr_max, cr_min, cr_ref_av)
             
-            # fill write_dict with results     
-            w_dict = {'nr': ind,'P': p,'Pdb': Pdb[ind],'h': ['std'],'a': a_list,'a_occ': a_occ_list,'R': cr_av,'time': time_needed,'R_ref': cr_ref_av,}
-            
-            # write to file
+            """ Prepare dump dictionary """
+            w_dict = {'nr': ind,'P': p,'Pdb': Pdb[ind], 'a': a_list,'a_occ': a_occ_list, 'Rmean': cr_mean, 'Rstd': cr_std, 'time': time_needed,'R_ref_av': cr_ref_av}
+            if use_std_normal:
+                w_dict['h'] = 'std'
+            else:
+                w_dict['h'] = h
+            """ Write dictionary to file """
             w.write_row(w_dict)
         """
         Preprocess with running qpr_csv_dump.py
@@ -99,18 +112,18 @@ if __name__ == '__main__':
     print(40*"-"+"\nQuadratic Programming Relaxation Approach to Compute-and-Forward Network Coding Design\n"+40*"-")
         
     par_dict = {
-        "pstart": 0,    # dB/10
-        "pend": 2,      # dB/10
-        "pnum": 200, # number of points between pstart and pend
+        "pstart": 0,    # dB
+        "pend": 20,     # dB
+        "pnum": 100,    # number of points between pstart and pend
         # Lstart, Lend, Lstep only used for standard channels
-        "Lstart": 4,    
-        "Lend": 4,
-        "Lstep": 2,
-        # fix channel: np.array([…]); for std gauß channel: anything with size() = 1
-        "h": np.array([1.2,0.3,0.8,2.1]),# np.array([None]),  # when None is used -> standard normal distribution will be used to create h's
-        "its": 10, # number of iterations per setting (h will be computed newly if std norm is used)
+        "Lstart": 2,    # channel and coefficient length START
+        "Lend": 16,     # END
+        "Lstep": 2,     # Stepwidth
+        "h": np.array([None]),  # None for gaussian channel vector
+        "h_absolute": True,     # True: only positive values in channel vector
+        "its": 1000,     # number of iterations per setting
         "time_scale": 1000, # 1000 for ms, 1 for s ...
-        "calc_ref": False,
+        "calc_ref": False,  # 
     }
     
     # run simulation

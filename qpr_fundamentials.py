@@ -46,10 +46,13 @@ def qpr_lin_fit(x, m, n):
         
 def comp_rate(h, a, P):
     """
-    Calculates the Computation Rate as known as the function:
+    Calculates the Computation Rate via function:
     R(h, a) = 1/2 * log2(1/ (norm2(a) - (P*(h*a)^2))/(1+ P*norm2^2(h)) )
     """
-    ha_dotprod_pow2 = np.power(np.dot(h, a), 2)
+    h = np.absolute(h)
+    a = np.absolute(a)
+    ha_dot = np.dot(h, a)
+    ha_dotprod_pow2 = np.power(ha_dot, 2)
     denominator = norm2(a) - ( P * ha_dotprod_pow2 / (1 + P * norm2(h) ) )
     R = 0.5 * log2_plus(1 / denominator)
     return R 
@@ -125,7 +128,7 @@ def sort_cofVec_occ(p_dict, direction):
           
     return ind_vec
     
-def cnt_occurence(a, di=True):
+def cnt_appearance(a, di=True):
     """
     Returns two lists. 1: list with channel vectors. 2: list with occurence of each channel vector
         
@@ -137,36 +140,43 @@ def cnt_occurence(a, di=True):
         True: decreasing, False: increasing order
     """
     lis = [] # [ [a_vector, cnt(a_vector] ),  ...]
-    lis_occ = []
+    lis_app = []
     for i in range(0, len(a)):  # for all coefficient vectors in a:
         found = False
         ai = a[i]
+        #ai_neg = np.negative(ai)
         
         for i, e in enumerate(lis): # if current coeff vector already seen, increment occurence list
-            if np.array_equal(e, ai):
-                lis_occ[i] += 1
+            equal = array_equal_pos_neg(e, ai)
+            if equal in [1, -1]:
+                lis_app[i] += 1
                 found = True
                 break
         
         if not found:   # if not seen, add coeff vector to list and 1 to occurence list
             lis.append(ai)
-            lis_occ.append(1)
+            lis_app.append(1)
     
-    lis_occ_unsort = np.copy(lis_occ)
+    lis_app_unsort = np.copy(lis_app)
     if di:  # if decreasing order is wanted: negate occurences
-        lis_occ = np.negative(lis_occ)
+        lis_app = np.negative(lis_app)
         
-    lis_sort_ind = np.argsort(lis_occ, axis=0) # get indizes to sort lis_occ
+    lis_sort_ind = np.argsort(lis_app, axis=0) # get indizes to sort lis_app
     
     lis_unsort = np.copy(lis)
     
     for i in range(0, len(lis)):
         lis[i] = lis_unsort[lis_sort_ind[i]]    
-        lis_occ[i] = lis_occ_unsort[lis_sort_ind[i]]
+        lis_app[i] = lis_app_unsort[lis_sort_ind[i]]
     
-    return lis, lis_occ
+    return lis, lis_app
 
 
-
-
+def array_equal_pos_neg(a, b):
+    ret = 0
+    if np.array_equal(a, b):
+        ret = 1
+    elif np.array_equal(a, np.negative(b)):
+        ret = -1
+    return ret
 
